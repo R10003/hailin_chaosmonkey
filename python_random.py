@@ -116,43 +116,6 @@ def random_choice_node(node_list):
     return node
 
 
-def do_random():
-    node_string = get_config(config_path, 'chaosmonkey', 'node_list')
-    node_list = re.split(',', node_string)
-    node_num = len(node_list)
-    node_user = get_config(config_path, 'chaosmonkey', 'node_user')
-    node_password = get_config(config_path, 'chaosmonkey', 'node_password')
-    for i in range(node_num):
-        chaos = ChaosMonkey(node_list[i], node_user, node_password)
-        is_burn_cpu = random.randint(0, 1)
-        is_burn_mem = random.randint(0, 1)
-        is_eat_mem = random.randint(0, 1)
-        is_burn_io = random.randint(0, 1)
-        is_net_loss = random.randint(0, 1)
-        is_net_delay = random.randint(0, 1)
-        print time.strftime('%Y.%m.%d %H.%M', time.localtime(time.time()))
-        print 'node:%s' % node_list[i]
-        print 'is_burn_cpu:%s' % is_burn_cpu
-        print 'is_burn_mem:%s' % is_burn_mem
-        print 'is_eat_mem:%s' % is_eat_mem
-        print 'is_burn_io:%s' % is_burn_io
-        print 'is_net_loss:%s' % is_net_loss
-        print 'is_net_delay:%s' % is_net_delay
-        print '=' * 60
-        if is_burn_cpu:
-            do(chaos.burn_cpu, 'burn_cpu_time', 'burn_cpu_percent')
-        if is_burn_mem:
-            do(chaos.burn_mem, 'burn_mem_time', 'burn_mem_percent')
-        if is_eat_mem:
-            do(chaos.eat_mem, 'eat_mem_time', 'eat_mem_percent')
-        if is_burn_io:
-            do(chaos.burn_io, 'burn_io_time', 'burn_io_percent')
-        if is_net_loss:
-            do(chaos.net_loss, 'net_loss_time', 'net_loss_percent')
-        if is_net_delay:
-            do(chaos.net_latency, 'net_delay_run_time', 'net_delay_time')
-
-
 def do(func, cofig_time, config_percent):
     do_time = get_config(config_path, 'chaosmonkey', cofig_time)
     do_percent = get_config(config_path, 'chaosmonkey', config_percent)
@@ -164,48 +127,44 @@ def do(func, cofig_time, config_percent):
     func(do_time, do_percent)
 
 
-def do_appoint():
+def do_appoint(all_random):
     node_string = get_config(config_path, 'chaosmonkey', 'node_list')
     node_list = re.split(',', node_string)
     node_num = len(node_list)
     node_user = get_config(config_path, 'chaosmonkey', 'node_user')
     node_password = get_config(config_path, 'chaosmonkey', 'node_password')
+
     for i in range(node_num):
         chaos = ChaosMonkey(node_list[i], node_user, node_password)
-        is_burn_cpu = get_config(config_path, 'chaosmonkey', 'is_burn_cpu')
-        is_burn_mem = get_config(config_path, 'chaosmonkey', 'is_burn_mem')
-        is_eat_mem = get_config(config_path, 'chaosmonkey', 'is_eat_mem')
-        is_burn_io = get_config(config_path, 'chaosmonkey', 'is_burn_io')
-        is_net_loss = get_config(config_path, 'chaosmonkey', 'is_net_loss')
-        is_net_delay = get_config(config_path, 'chaosmonkey', 'is_net_delay')
-
-        print time.strftime('%Y.%m.%d %H.%M', time.localtime(time.time()))
+        actions_func = {'is_burn_cpu': chaos.burn_cpu, 'is_burn_mem': chaos.burn_mem, 'is_eat_mem': chaos.eat_mem,
+                        'is_burn_io': chaos.burn_io, 'is_net_loss': chaos.net_loss, 'is_net_delay': chaos.net_latency}
+        print time.strftime('%Y.%m.%d %H:%M', time.localtime(time.time()))
         print 'node:%s' % node_list[i]
-        print 'is_burn_cpu:%s' % is_burn_cpu
-        print 'is_burn_mem:%s' % is_burn_mem
-        print 'is_eat_mem:%s' % is_eat_mem
-        print 'is_burn_io:%s' % is_burn_io
-        print 'is_net_loss:%s' % is_net_loss
-        print 'is_net_delay:%s' % is_net_delay
+
+        for key in actions:
+            if all_random:
+                actions[key] = random.randint(0, 1)
+            else:
+                actions[key] = get_config(config_path, 'chaosmonkey', key)
+            print '%s:%s' % (key, actions[key])
         print '=' * 60
-        if is_burn_cpu:
-            do(chaos.burn_cpu, 'burn_cpu_time', 'burn_cpu_percent')
-        if is_burn_mem:
-            do(chaos.burn_mem, 'burn_mem_time', 'burn_mem_percent')
-        if is_eat_mem:
-            do(chaos.eat_mem, 'eat_mem_time', 'eat_mem_percent')
-        if is_burn_io:
-            do(chaos.burn_io, 'burn_io_time', 'burn_io_percent')
-        if is_net_loss:
-            do(chaos.net_loss, 'net_loss_time', 'net_loss_percent')
-        if is_net_delay:
-            do(chaos.net_latency, 'net_delay_run_time', 'net_delay_time')
+
+        for key in actions:
+            if actions[key]:
+                do(actions_func[key], actions_time[key], actions_percent[key])
 
 
 if __name__ == "__main__":
     config_path = u'/chaos/chaosconfig.ini'
+    actions = {'is_burn_cpu': '', 'is_burn_mem': '', 'is_eat_mem': '', 'is_burn_io': '', 'is_net_loss': '',
+               'is_net_delay': ''}
+    actions_time = {'is_burn_cpu': 'burn_cpu_time', 'is_burn_mem': 'burn_mem_time', 'is_eat_mem': 'eat_mem_time',
+                    'is_burn_io': 'burn_io_time', 'is_net_loss': 'net_loss_time',
+                    'is_net_delay': 'net_delay_run_time'}
+    actions_percent = {'is_burn_cpu': 'burn_cpu_percent', 'is_burn_mem': 'burn_mem_percent',
+                       'is_eat_mem': 'eat_mem_percent', 'is_burn_io': 'burn_io_percent',
+                       'is_net_loss': 'net_loss_percent', 'is_net_delay': 'net_delay_time'}
+
     is_all_random = get_config(config_path, 'chaosmonkey', 'is_all_random')
-    if is_all_random:
-        do_random()
-    else:
-        do_appoint()
+
+    do_appoint(is_all_random)
