@@ -107,7 +107,7 @@ class ChaosMonkey(object):
 
     def login_node_exec_cmd(self, cmd):
         ssh = self.ssh_node()
-        stdin, stdout, stderr = ssh.exec_command('cd /chaos ; %s ' % cmd)
+        stdin, stdout, stderr = ssh.exec_command('cd /chaos/scripts ; %s ' % cmd)
         stdout_read = stdout.read()
         stderr_read = stderr.read()
         return stdout_read, stderr_read
