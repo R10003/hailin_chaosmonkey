@@ -11,7 +11,7 @@ void eatMem(int time,int block_num)
  int block = block_num;
 
  int i =0; int j = 0;
- int cell = 1 * 1024 * 1024;
+ int cell = 0.1 * 1024 * 1024;
  char * pMem[block];
  for(i = 0; i < block; i++)
  {        

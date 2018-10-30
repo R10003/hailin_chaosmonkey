@@ -30,7 +30,13 @@ class ChaosMonkey(object):
     def burn_io(self, time, percent):
         time = int(time)
         percent = int(percent)
-        cmd = './burnio.sh %d > burnio.log 2>&1 &' % time
+        cmd = './burnio.sh %d /burn_io> burnio.log 2>&1 &' % time
+        self.login_node_exec_cmd(cmd)
+
+    def burn_data_io(self, time, percent):
+        time = int(time)
+        percent = int(percent)
+        cmd = './burnio.sh %d /data/burn_io> burnio.log 2>&1 &' % time
         self.login_node_exec_cmd(cmd)
 
     def burn_mem(self, time, percent):
@@ -60,8 +66,21 @@ class ChaosMonkey(object):
             print 'exec cmd %s error:%s ' % (cmd, err)
         available_mem = int(available_mem)
         eat_block = int(percent / 100.0 * available_mem)
-        cmd = './eatMemory.o %d %d > eatMemory.log 2>&1 &' % (time, eat_block)
-        self.login_node_exec_cmd(cmd)
+
+        # eat_block单位为M,i为有几个1G，即为执行次数
+        i = eat_block / 1000
+        j = 0
+        ratio = 10000
+        # 执行一次eatMemory.o占用ratio*0.1M内存，这里为1G
+        while j < i:
+            if j == 0:
+                cmd = 'echo total:%s > eatMemory.log' % i
+                self.login_node_exec_cmd(cmd)
+            cmd = 'echo num:%s >> eatMemory.log' % j
+            self.login_node_exec_cmd(cmd)
+            cmd = './eatMemory.o %d %d >> eatMemory.log 2>&1 &' % (time, ratio)
+            self.login_node_exec_cmd(cmd)
+            j += 1
 
     def net_loss(self, time, percent):
         time = int(time)
@@ -137,7 +156,8 @@ def do_appoint(all_random):
     for i in range(node_num):
         chaos = ChaosMonkey(node_list[i], node_user, node_password)
         actions_func = {'is_burn_cpu': chaos.burn_cpu, 'is_burn_mem': chaos.burn_mem, 'is_eat_mem': chaos.eat_mem,
-                        'is_burn_io': chaos.burn_io, 'is_net_loss': chaos.net_loss, 'is_net_delay': chaos.net_latency}
+                        'is_burn_io': chaos.burn_io, 'is_burn_data_io': chaos.burn_data_io,
+                        'is_net_loss': chaos.net_loss, 'is_net_delay': chaos.net_latency}
         print time.strftime('%Y.%m.%d %H:%M', time.localtime(time.time()))
         print 'node:%s' % node_list[i]
 
@@ -156,14 +176,17 @@ def do_appoint(all_random):
 
 if __name__ == "__main__":
     config_path = u'/chaos/chaosconfig.ini'
-    actions = {'is_burn_cpu': '', 'is_burn_mem': '', 'is_eat_mem': '', 'is_burn_io': '', 'is_net_loss': '',
-               'is_net_delay': ''}
+    actions = {'is_burn_cpu': '', 'is_burn_mem': '', 'is_eat_mem': '', 'is_burn_io': '', 'is_burn_data_io': '',
+               'is_net_loss': '', 'is_net_delay': ''}
+
     actions_time = {'is_burn_cpu': 'burn_cpu_time', 'is_burn_mem': 'burn_mem_time', 'is_eat_mem': 'eat_mem_time',
-                    'is_burn_io': 'burn_io_time', 'is_net_loss': 'net_loss_time',
-                    'is_net_delay': 'net_delay_run_time'}
+                    'is_burn_io': 'burn_io_time', 'is_burn_data_io': 'burn_data_io_time',
+                    'is_net_loss': 'net_loss_time', 'is_net_delay': 'net_delay_run_time'}
+
     actions_percent = {'is_burn_cpu': 'burn_cpu_percent', 'is_burn_mem': 'burn_mem_percent',
                        'is_eat_mem': 'eat_mem_percent', 'is_burn_io': 'burn_io_percent',
-                       'is_net_loss': 'net_loss_percent', 'is_net_delay': 'net_delay_time'}
+                       'is_burn_data_io': 'burn_data_io_percent', 'is_net_loss': 'net_loss_percent',
+                       'is_net_delay': 'net_delay_time'}
 
     is_all_random = get_config(config_path, 'chaosmonkey', 'is_all_random')
 
