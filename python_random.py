@@ -112,6 +112,18 @@ class ChaosMonkey(object):
         stderr_read = stderr.read()
         return stdout_read, stderr_read
 
+    def kill_para(self, para):
+        cmd = '%s | grep -v grep ;echo $?' % para
+        exec_out, exec_err = self.login_node_exec_cmd(cmd)
+        exec_out = exec_out.strip()
+
+        # 返回码为0,说明有这个服务在
+        if exec_out[-1] == '0':
+            cmd = '''%s | grep -v grep |awk {'print "kill -9 " $2'}|sh''' % para
+            self.login_node_exec_cmd(cmd)
+        else:
+            print '%s has not process %s' % (self.node, para)
+
 
 def get_config(path, section, key):
     value = None
@@ -138,20 +150,24 @@ def random_choice_node(node_list):
 def do(func, cofig_time, config_percent):
     do_time = get_config(config_path, 'chaosmonkey', cofig_time)
     do_percent = get_config(config_path, 'chaosmonkey', config_percent)
-    if do_time is None:
+    if do_time == '':
         do_time = random.randint(10, 3600)
-    if do_percent is None:
+    if do_percent == '':
         do_percent = random.randint(10, 100)
 
     func(do_time, do_percent)
 
 
-def do_appoint(all_random):
+def do_appoint():
     node_string = get_config(config_path, 'chaosmonkey', 'node_list')
     node_list = re.split(',', node_string)
     node_num = len(node_list)
     node_user = get_config(config_path, 'chaosmonkey', 'node_user')
     node_password = get_config(config_path, 'chaosmonkey', 'node_password')
+    is_random_kill_apps = get_config(config_path, 'chaosmonkey', 'is_random_kill_apps')
+    is_all_random = get_config(config_path, 'chaosmonkey', 'is_all_random')
+    apps_string = get_config(config_path, 'chaosmonkey', 'apps_list')
+    apps_list = re.split(',', apps_string)
 
     for i in range(node_num):
         chaos = ChaosMonkey(node_list[i], node_user, node_password)
@@ -162,21 +178,44 @@ def do_appoint(all_random):
         print 'node:%s' % node_list[i]
 
         for key in actions:
-            if all_random:
+            if is_all_random:
                 actions[key] = random.randint(0, 1)
             else:
                 actions[key] = get_config(config_path, 'chaosmonkey', key)
             print '%s:%s' % (key, actions[key])
-        print '=' * 60
+        # print '=' * 60
 
         for key in actions:
             if actions[key]:
                 do(actions_func[key], actions_time[key], actions_percent[key])
 
+        for app in apps_list:
+            app = app.strip()
+            if is_random_kill_apps:
+                kill_or_not = random.randint(0, 1)
+                if kill_or_not:
+                    try:
+                        parameter = apps_func[app]
+                        chaos.kill_para(parameter)
+                    except KeyError:
+                        print 'app %s is not exist ' % app
+
+            else:
+                kill_or_not = 1
+                try:
+                    parameter = apps_func[app]
+                    chaos.kill_para(parameter)
+                except KeyError:
+                    print 'app %s is not exist ' % app
+
+            print 'kill %s:%s' % (app, kill_or_not)
+        print '=' * 60
+
 
 if __name__ == "__main__":
     config_path = u'/chaos/chaosconfig.ini'
-    actions = {'is_burn_cpu': '', 'is_burn_mem': '', 'is_eat_mem': '', 'is_burn_io': '', 'is_burn_data_io': '',
+
+    actions = {'is_burn_cpu': '', 'is_eat_mem': '', 'is_burn_io': '', 'is_burn_data_io': '',
                'is_net_loss': '', 'is_net_delay': ''}
 
     actions_time = {'is_burn_cpu': 'burn_cpu_time', 'is_burn_mem': 'burn_mem_time', 'is_eat_mem': 'eat_mem_time',
@@ -188,6 +227,40 @@ if __name__ == "__main__":
                        'is_burn_data_io': 'burn_data_io_percent', 'is_net_loss': 'net_loss_percent',
                        'is_net_delay': 'net_delay_time'}
 
-    is_all_random = get_config(config_path, 'chaosmonkey', 'is_all_random')
+    apps_func = {
+        'mysqld': 'ps -ef|grep mysqld|grep port',
+        'mysqld_safe': 'ps -ef|grep mysqld_safe',
+        'flume_agent': 'ps -ef|grep flume_agent',
+        'hbase_master': 'ps -ef|grep HBase_Master',
+        'hbase_regionserver': 'ps -ef|grep HBase_RegionServer',
+        'hdfs_datanode': 'ps -ef|grep HDFS_DataNode',
+        'hdfs_namenode': 'ps -ef|grep HDFS_NameNode',
+        'hdfs_journalnode': 'ps -ef|grep HDFS_JournalNode',
+        'hdfs_failovercontroller': 'ps -ef|grep HDFS-FAILOVERCONTROLLER',
+        'hive_metastore': 'ps -ef|grep Hive_hive-metastore',
+        'impala-statestore': 'ps -ef|grep impala-STATESTORE',
+        'impala-catalogserver': 'impala-CATALOGSERVER',
+        'impala_daemon': 'impala-IMPALAD',
+        'kafka_broker': 'ps -ef|grep KAFKA_BROKER',
+        'oozie_server': 'ps -ef|grep OOZIE_SERVER',
+        'spark_history_server': 'ps -ef|grep SPARK_YARN_HISTORY_SERVER',
+        'yarn_nodemanager': 'ps -ef|grep YARN_NodeManager',
+        'yarn_resourcemanager': 'ps -ef|grep YARN_ResourceManager',
+        'yarn_jobhistory': 'ps -ef|grep YARN_JobHistory',
+        'zookeeper_server': 'ps -ef|grep zookeeper-server',
+        'cloudera_hostmonitor': 'ps -ef|grep cloudera-mgmt-HOSTMONITOR',
+        'cloudera_servicemonitor': 'ps -ef|grep cloudera-mgmt-SERVICEMONITOR',
+        'cloudera_eventserver': 'ps -ef|grep cloudera-mgmt-EVENTSERVER',
+        'cloudera_alertpublish': 'ps -ef|grep cloudera-mgmt-ALERTPUBLISHER',
+        'nginx': 'ps -ef|grep nginx|grep master',
+        'keepalive': 'ps -ef|grep keepalive',
+        'ntpd': 'ps -ef|grep ntpd',
+        'pacemaker': 'ps -ef|grep pacemaker',
+        'corosync': 'ps -ef|grep corosync',
+        'tomcat': 'ps -ef|grep tomcat',
+        'redis': 'ps -ef|grep redis',
+        'topbi': 'ps -ef | grep jackrabbit',
+        'monitor.py': 'ps -ef|grep monitor.py'
+    }
 
-    do_appoint(is_all_random)
+    do_appoint()
