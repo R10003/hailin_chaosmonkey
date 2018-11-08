@@ -191,6 +191,8 @@ def do_appoint():
 
         for app in apps_list:
             app = app.strip()
+            if app == '':
+                continue
             if is_random_kill_apps:
                 kill_or_not = random.randint(0, 1)
                 if kill_or_not:
